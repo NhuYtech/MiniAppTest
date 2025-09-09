@@ -1,103 +1,208 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+
+interface Todo {
+  _id: string;
+  text: string;
+  deadline?: string;
+  createdAt: string;
+}
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [text, setText] = useState("");
+  const [deadline, setDeadline] = useState("");
+  const [isEditing, setIsEditing] = useState<string | null>(null);
+  const [editedText, setEditedText] = useState("");
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const fetchTodos = async (sortBy: string = "createdAt") => {
+    const res = await fetch(`/api/todos?sortBy=${sortBy}`);
+    const data = await res.json();
+    setTodos(data);
+  };
+
+  useEffect(() => {
+    fetchTodos();
+  }, []);
+
+  async function addTodo() {
+    if (text.trim() === "") return;
+
+    const newTodo = {
+      text,
+      deadline: deadline || undefined,
+    };
+
+    const res = await fetch("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newTodo),
+    });
+    const createdTodo = await res.json();
+
+    setTodos([createdTodo, ...todos]);
+    setText("");
+    setDeadline("");
+  }
+
+  async function editTodo(id: string) {
+    await fetch("/api/todos", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, text: editedText }),
+    });
+
+    setTodos(
+      todos.map((todo) =>
+        todo._id === id ? { ...todo, text: editedText } : todo
+      )
+    );
+    setIsEditing(null);
+    setEditedText("");
+  }
+
+  async function deleteTodo(id: string) {
+    await fetch("/api/todos", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+
+    setTodos(todos.filter((todo) => todo._id !== id));
+  }
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US");
+  };
+
+  return (
+    <div className="p-5 font-sans">
+      <h1 className="text-2xl font-bold mb-6">📝 Todo List</h1>
+
+      {/* Task & Deadline Input */}
+      <div className="flex mb-6 gap-4 items-end">
+        {/* Task input */}
+        <div className="flex flex-col flex-grow">
+          <label
+            htmlFor="task-input"
+            className="text-sm font-medium text-gray-200 mb-3"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            Task
+          </label>
+          <input
+            id="task-input"
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Add a new task..."
+            className="px-3 py-2 border rounded-md w-full focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+
+        {/* Deadline input */}
+        <div className="flex flex-col w-48">
+          <label
+            htmlFor="deadline-input"
+            className="text-sm font-medium text-gray-200 mb-3"
+          >
+            Deadline
+          </label>
+          <input
+            id="deadline-input"
+            type="date"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+        </div>
+
+        {/* Button */}
+        <button
+          onClick={addTodo}
+          className="h-[42px] px-5 bg-blue-500 text-white rounded-md hover:bg-blue-600"
         >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          Add Todo
+        </button>
+      </div>
+
+      {/* My Tasks */}
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold">My Tasks</h2>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-400">Sort by:</span>
+          <select
+            onChange={(e) => fetchTodos(e.target.value)}
+            className="p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="createdAt">Creation Date</option>
+            <option value="deadline">Deadline</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Todo List */}
+      <ul>
+        {todos.map((todo) => (
+          <li
+            key={todo._id}
+            className="p-2 border-b last:border-b-0 flex justify-between items-center"
+          >
+            {isEditing === todo._id ? (
+              <div className="flex-grow flex items-center gap-2">
+                <input
+                  type="text"
+                  value={editedText}
+                  onChange={(e) => setEditedText(e.target.value)}
+                  className="p-2 border rounded-md flex-grow focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <button
+                  onClick={() => editTodo(todo._id)}
+                  className="px-3 py-1 bg-green-500 text-white rounded-md text-sm hover:bg-green-600"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setIsEditing(null)}
+                  className="px-3 py-1 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <span>{todo.text}</span>
+                  {todo.deadline && (
+                    <span className="ml-2 text-xs text-red-500">
+                      (Deadline: {formatDate(todo.deadline)})
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setIsEditing(todo._id);
+                      setEditedText(todo.text);
+                    }}
+                    className="px-3 py-1 bg-yellow-500 text-white rounded-md text-sm hover:bg-yellow-600"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => deleteTodo(todo._id)}
+                    className="px-3 py-1 bg-red-500 text-white rounded-md text-sm hover:bg-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
